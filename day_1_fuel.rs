@@ -2,13 +2,12 @@
 /// [aoc1]: https://adventofcode.com/2019/day/1
 use std::cmp;
 
-use lazy_static::lazy_static;
-
-lazy_static! {
-    static ref MODULE_MASSES: Vec<i32> = include_str!("../data/day_1_fuel_input.txt")
+// It would likely be better to use a lazy_static! but I don't want to use dependencies...
+pub fn module_masses() -> Vec<i32> {
+    include_str!("data/day_1_fuel_input.txt")
         .lines()
         .map(|i| i32::from_str_radix(i, 10).unwrap())
-        .collect();
+        .collect()
 }
 
 pub fn fuel_required(mass: i32) -> i32 {
@@ -16,7 +15,7 @@ pub fn fuel_required(mass: i32) -> i32 {
 }
 
 pub fn total_fuel_required() -> i32 {
-    MODULE_MASSES.iter().map(|m| fuel_required(*m)).sum()
+    module_masses().iter().copied().map(fuel_required).sum()
 }
 
 /// Fuel required for a given mass, accounting for the newly-added fuel. There's probably a
@@ -29,9 +28,10 @@ pub fn adjusted_fuel_required(mass: i32) -> i32 {
 }
 
 pub fn adjusted_total_fuel_required() -> i32 {
-    MODULE_MASSES
+    module_masses()
         .iter()
-        .map(|m| adjusted_fuel_required(*m))
+        .copied()
+        .map(adjusted_fuel_required)
         .sum()
 }
 
