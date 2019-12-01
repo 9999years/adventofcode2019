@@ -1,4 +1,3 @@
 /target
 **/*.rs.bk
 Cargo.lock
-data/day_1_fuel_input.txt
