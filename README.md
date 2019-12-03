@@ -16,7 +16,6 @@ The bucket of languages includes:
 - LaTeX
 - PHP
 - Bash
-- Go
 - Ruby
 - Mathematica
 - Haskell
@@ -39,5 +38,6 @@ The bucket of languages includes:
 Languages used so far:
 - Rust
 - Racket
+- Go
 
 [aoc]: https://adventofcode.com/
