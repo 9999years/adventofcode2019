@@ -1,14 +1,18 @@
-# The Tyranny of the Rocket Equation
+# The Tyranny of the Rocket Equation (Rust)
 day-1:
 	rustc --crate-type lib --test day_1_fuel.rs
 	./day_1_fuel
 
+# Program Alarm (Racket)
 day-2:
 	racket ./day_2_intcode.rkt
 
-# Crossed Wires
+# Crossed Wires (Go)
 day-3:
 	go test -v ./day_3_wires_test.go
+
+day-4:
+	bef ./day_4_secure_container.bf
 
 # Remove generated files and binaries
 clean:
