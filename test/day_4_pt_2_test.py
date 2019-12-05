@@ -154,68 +154,52 @@ def has_adj_not_in_run(s: Stack) -> Stack:
     # s: [ORIG, ...]
     s.dup()
     # Context ctx
-    s.push(0b11)
+    s.push(3)#0b11
     #        ^ are we currently in a run?
     #         ^ are we currently in a 3-or-more-digit run?
     s.swp()
     # s: [N, ctx, ...]
-    i = 0
     while True:
-        print("iteration", i, ", s =", s)
         # check gt 10
         s.dup()
         s.push(10)
         s.gt()
         if s.pop() == 1:
             # top > 10
-            print("top of stack is greater than 10", s)
             check_last_2_digits_same(s)
             if s.pop() == 0:
                 # last 2 are same
-                print("last 2 digits are same", s)
                 s.swp()
                 push_in_run(s)
                 if s.pop() == 0:
                     # At least 3 in a row
                     #  continue_run = True
                     s.pop()
-                    s.push(0b00)
+                    s.push(0)
                 else:
                     s.pop()
-                    s.push(0b01)
-                s.swp()
-                print("done with last 2 digits are same", s)
+                    s.push(1)
             else:
-                print("last 2 digits not same", s)
                 # last 2 not same
                 # If we just saw *only* a pair, we're good!
                 s.swp()  # Check in_run
                 push_in_run(s)
                 if s.pop() == 0:  # Check in_run
-                    print("in_run is true", s)
                     push_continue_run(s)
                     if s.pop() == 1:  # not continue_run
                         s.swp()
-                        print("continue_run is false", s)
                         break
-                    else:
-                        print("continue_run is true", s)
-                else:
-                    print("in_run is false", s)
-                print("almost done with last 2 digits not same", s)
                 s.pop()
-                s.push(0b11)
-                s.swp()
-                print("done with last 2 digits not same", s)
+                s.push(3)
         else:
             # top < 10
-            print("top of stack < 10", s)
             break
+        s.swp()
         # divide by 10 for next iteration
         s.push(10)
         s.div()
-        print("divided by 10", s)
-        i += 1
+
+    # after break
     s.pop()
 
     push_in_run(s)
