@@ -12,7 +12,14 @@ day-3:
 	go test -v ./day_3_wires_test.go
 
 day-4:
-	bef ./day_4_secure_container.bf
+	@echo "vvvvvv Last password checked."
+	@echo "       vvvv Total number of valid passwords."
+	bef -q ./day_4_secure_container.bf
+	@echo
+	@echo "vvvvvv Last password checked."
+	@echo "       vvvv Total number of valid passwords."
+	bef -q ./day_4_pt_2_secure_container.bf
+	@echo
 
 # Remove generated files and binaries
 clean:

@@ -5,6 +5,7 @@ Code for [Advent of Code][aoc] 2019.
 Each day in a different language!
 
 The bucket of languages includes:
+
 - Ruby
 - Perl
 - Java
@@ -34,10 +35,16 @@ The bucket of languages includes:
 - Prolog
 - Fortran
 - Forth
+- Zig
+- Nim
+- Pony
+- Dart
 
 Languages used so far:
+
 - Rust
 - Racket
 - Go
+- Befunge
 
 [aoc]: https://adventofcode.com/
