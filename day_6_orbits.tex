@@ -145,7 +145,7 @@
       { \om__indirect_orbits: }
   }
 
-% \om_indirect_orbits:NN <orbit-map> <int-var>
+% \om_indirect_orbits:NN <int-var> <orbit-map>
 % Stores the number of indirect orbits in <orbit-map> in the variable
 % specified by <int-var>.
 \cs_set:Npn \om_indirect_orbits:NN #1#2
@@ -156,25 +156,140 @@
       { COM } { -1 }
 
     % Clear other values.
-    \prop_set_eq:NN \l__om_unvisited_prop #1
+    \prop_set_eq:NN \l__om_unvisited_prop #2
     \int_zero:N \l__om_indirect_int
 
     % Process the prop lists.
     \om__indirect_orbits:
 
     % Set the return value.
-    \int_set_eq:NN #2 \l__om_indirect_int
+    \int_set_eq:NN #1 \l__om_indirect_int
   }
 
-% \om_total_orbits:NN <orbit map> <int-var>
+% \om_total_orbits:NN <int-var> <orbit map>
 % Returns the total number of orbits (i.e. both direct and indirect) in the map.
 \cs_set:Npn \om_total_orbits:NN #1#2
   {
-    \om_indirect_orbits:NN #1 \l_tmpa_int
-    \int_set:Nn #2
+    \om_indirect_orbits:NN \l_tmpa_int #2
+    \int_set:Nn #1
       {
-        \om_direct_orbits:N #1
+        \om_direct_orbits:N #2
         + \int_use:N \l_tmpa_int
+      }
+  }
+
+% Breadth-first search implementation.
+
+% Internal: The queue of nodes to discover.
+%   - Enqueue with \seq_put_left:Nx
+%   - Dequeue with \seq_pop_right:NN
+\seq_new:N \l__om_bfs_discovery_seq
+% Internal: Discovered nodes.
+\seq_new:N \l__om_bfs_discovered_seq
+% Internal: Parents of discovered nodes.
+\prop_new:N \l__om_bfs_parent_prop
+% Internal: Undiscovered edges.
+\prop_new:N \l__om_bfs_undiscovered_prop
+% Internal: Goal node.
+\tl_new:N \l__om_bfs_goal_tl
+% Internal: Start node.
+\tl_new:N \l__om_bfs_start_tl
+
+% \om__adjacent_edges:n <node>
+% Marks the adjacent and undiscovered neighbors of <nodes> as discovered,
+% notes their parents, and adds them to the discovery queue.
+\cs_set:Npn \om__adjacent_edges:n #1
+  {
+    % For each undiscovered edge...
+    \prop_map_inline:Nn \l__om_bfs_undiscovered_prop
+      {
+        % ...if the edge starts or ends at #1...
+        \str_if_eq:nnT { ##1 } { #1 }
+          {
+            \seq_if_in:NnF \l__om_bfs_discovered_seq { ##2 }
+              {
+                % Label it as discovered.
+                \seq_put_left:Nn \l__om_bfs_discovered_seq { ##1 }
+                \prop_remove:Nn \l__om_bfs_undiscovered_prop { ##1 }
+                % Mark its parent.
+                \prop_put:Nnn \l__om_bfs_parent_prop { ##2 } { ##1 }
+                % Add it to the discovery queue.
+                \seq_put_left:Nn \l__om_bfs_discovery_seq { ##2 }
+              }
+          }
+        \str_if_eq:nnT { ##2 } { #1 }
+          {
+            % ...and the node the edge leads to is undiscovered:
+            \seq_if_in:NnF \l__om_bfs_discovered_seq { ##1 }
+              {
+                % Label it as discovered.
+                \seq_put_left:Nn \l__om_bfs_discovered_seq { ##2 }
+                \prop_remove:Nn \l__om_bfs_undiscovered_prop { ##2 }
+                % Mark its parent.
+                \prop_put:Nnn \l__om_bfs_parent_prop { ##1 } { ##2 }
+                % Add it to the discovery queue.
+                \seq_put_left:Nn \l__om_bfs_discovery_seq { ##1 }
+              }
+          }
+      }
+  }
+\cs_generate_variant:Nn \om__adjacent_edges:n { V }
+
+\cs_set:Npn \om__shortest_path:
+  {
+    \seq_if_empty:NF \l__om_bfs_discovery_seq
+      {
+        \seq_pop_right:NN \l__om_bfs_discovery_seq \l_tmpa_tl
+        \tl_if_eq:NNTF \l_tmpa_tl \l__om_bfs_goal_tl
+          {
+            % Found the goal; quit!
+            \seq_clear:N \l__om_bfs_discovery_seq
+          }
+          {
+            % Discover adjacent edges.
+            \om__adjacent_edges:V \l_tmpa_tl
+          }
+      }
+    % Recurse.
+    \seq_if_empty:NF \l__om_bfs_discovery_seq { \om__shortest_path: }
+  }
+
+% \om_shortest_path:NN <seq var> <orbit map> <search from> <search to>
+% Breadth-first search for pathfinding on an orbit map.
+\cs_set:Npn \om_shortest_path:NNnn #1#2#3#4
+  {
+    % #1: seq var to store result path in
+    % #2: orbit map
+    % #3: start node (you)
+    % #4: goal node (santa)
+    \seq_clear:N \l__om_bfs_discovery_seq
+    \seq_put_left:Nx \l__om_bfs_discovery_seq { #3 }
+
+    \seq_clear:N \l__om_bfs_discovered_seq
+    \seq_put_left:Nn \l__om_bfs_discovered_seq { #3 }
+
+    \prop_clear:N \l__om_bfs_parent_prop
+
+    \prop_set_eq:NN \l__om_bfs_undiscovered_prop #2
+
+    \tl_set:Nn \l__om_bfs_goal_tl { #4 }
+    \tl_set:Nn \l__om_bfs_start_tl { #3 }
+
+    \om__shortest_path:
+
+    % Use parent links to get back from the start to the goal.
+    \seq_clear:N #1
+    \seq_put_right:Nn #1 { #4 }
+    \str_clear:N \l_tmpa_str
+    \str_set:Nn \l_tmpa_str { #4 }
+    \bool_do_until:nn
+      {
+        \str_if_eq_p:Vn \l_tmpa_str { #3 }
+      }
+      {
+        \prop_get:NVN \l__om_bfs_parent_prop \l_tmpa_str \l_tmpb_tl
+        \seq_put_right:NV #1 \l_tmpb_tl
+        \str_set:Nx \l_tmpa_str { \tl_use:N \l_tmpb_tl }
       }
   }
 
@@ -188,9 +303,9 @@
     \ASSERT { \tl_tail:N \l_aoc_test_tl } { COM }
   }
 
+\seq_new:N \l_aoc_test_seq
 \TEST { aoc_read_to_seq:Nn }
   {
-    \seq_new:N \l_aoc_test_seq
     \aoc_read_to_seq:Nn \l_aoc_test_seq { data/day_6_orbit_map_test.txt }
     \ASSERT { \seq_use:Nn \l_aoc_test_seq { , } }
       {
@@ -266,22 +381,38 @@
 \TEST { om_indirect_orbits:NN }
   {
     \om_parse_file:Nn \l_aoc_tmp_om { data/day_6_orbit_map_test.txt }
-    \om_indirect_orbits:NN \l_aoc_tmp_om \l_aoc_test_int
+    \om_indirect_orbits:NN \l_aoc_test_int \l_aoc_tmp_om
     \ASSERT { \int_use:N \l_aoc_test_int } { 31 }
   }
 
 \TEST { om_total_orbits:NN }
   {
     \om_parse_file:Nn \l_aoc_tmp_om { data/day_6_orbit_map_test.txt }
-    \om_total_orbits:NN \l_aoc_tmp_om \l_aoc_test_int
+    \om_total_orbits:NN \l_aoc_test_int \l_aoc_tmp_om
     \ASSERT { \int_use:N \l_aoc_test_int } { 42 }
   }
 
-\TEST { Day~6~Part~1 }
+% \TEST { Day~6~Part~1 }
+  % {
+    % \om_parse_file:Nn \l_aoc_tmp_om { data/day_6_orbit_map.txt }
+    % \om_total_orbits:NN \l_aoc_test_int \l_aoc_tmp_om
+    % \ASSERT { \int_use:N \l_aoc_test_int } { 186 597 }
+  % }
+
+\TEST { BFS }
   {
-    \om_parse_file:Nn \l_aoc_tmp_om { data/day_6_orbit_map.txt }
-    \om_total_orbits:NN \l_aoc_tmp_om \l_aoc_test_int
-    \ASSERT { \int_use:N \l_aoc_test_int } { 186 597 }
+    \om_parse_file:Nn \l_aoc_tmp_om { data/day_6_orbit_map_test_2.txt }
+    \om_shortest_path:NNnn \l_aoc_test_seq \l_aoc_tmp_om
+      { YOU } { SAN }
+    \ASSERTSTR { \seq_use:Nn \l_aoc_test_seq { , } }
+      { SAN
+      , I
+      , D
+      , E
+      , J
+      , K
+      , YOU
+      }
   }
 
 \END
