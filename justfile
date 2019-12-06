@@ -24,8 +24,9 @@ day-4:
 
 # Sunny with a Chance of Asteroids (Nim)
 day-5:
-	nim compile ./day_5_intcode_2.nim
+	nim compile --run ./day_5_intcode_2.nim
 
 # Remove generated files and binaries
 clean:
-	rm day_1_fuel
+	rm -f day_1_fuel
+	rm -f day_5_intcode_2
