@@ -1,69 +1,287 @@
+\errorcontextlines 10
 \input{regression-test.tex}
 \RequirePackage{expl3}
 \ExplSyntaxOn
 
-\prop_new:N \g_aoc_orbits_prop
-
+% \aoc_parse_orbit:Nn <tlist> <orbit spec>
+% Splits <orbit spec> by ")" and stores the two halves in <tlist> as two
+% unbraced tokens.
+\seq_new:N \l__aoc_po_tmp_seq
+\tl_new:N \l__aoc_po_tmpa_tl
+\tl_new:N \l__aoc_po_tmpb_tl
 \cs_set:Npn \aoc_parse_orbit:Nn #1#2
   {
-    \seq_new:N \l__aoc_po_tmp_seq
-    \tl_new:N \l__aoc_po_tmpa_tl
-    \tl_new:N \l__aoc_po_tmpb_tl
     \seq_set_split:Nnn \l__aoc_po_tmp_seq { ) } { #2 }
     \seq_get_left:NN \l__aoc_po_tmp_seq \l__aoc_po_tmpa_tl
     \seq_get_right:NN \l__aoc_po_tmp_seq \l__aoc_po_tmpb_tl
     \tl_set:Nx #1
       {
-        { \tl_use:N \l__aoc_po_tmpa_tl }
-        \tl_use:N \l__aoc_po_tmpb_tl
+        { \tl_use:N \l__aoc_po_tmpb_tl }
+        \tl_use:N \l__aoc_po_tmpa_tl
       }
   }
 
-\cs_set:Npn \aoc_parse_orbit_map:Nn #1#2
+% \aoc_parse_orbit_map_to_seq:NN <output seq> <input seq>
+% Maps <input seq> of orbit specs into <output seq> according to
+% \aoc_parse_orbit:Nn.
+\tl_new:N \l__aoc_pom_tmp_tl
+\cs_set:Npn \aoc_parse_orbit_map_to_seq:NN #1#2
   {
-    \seq_new:N \l__aoc_pom_tmp_seq
-    \seq_set_split:Nnn \l__aoc_po_tmp_seq { ~ } { #2 }
     \seq_clear:N #1
-    \typeout{ #2 }
-    \typeout{ \seq_use:Nn \l__aoc_pom_tmp_seq { || } }
-    \seq_map_inline:Nn \l__aoc_pom_tmp_seq
+    \seq_map_inline:Nn #2
       {
-        \typeout { #1 }
-        \typeout { ##1 }
-        \seq_put_right:Nn #1 { ##1 }
+        \aoc_parse_orbit:Nn \l__aoc_pom_tmp_tl { ##1 }
+        \seq_put_right:Nx #1 { \tl_use:N \l__aoc_pom_tmp_tl }
       }
   }
 
+% \aoc_read_to_seq:Nn <sequence> <filename>
+% Reads the file given by <filename> and stores it to <sequence>,
+% splitting by lines. Caveats about matching brace-groups apply, but
+% they're not relevant here.
+\ior_new:N \l__aoc_rts_stream
 \cs_set:Npn \aoc_read_to_seq:Nn #1#2
   {
-    \ior_open:Nn \l__aoc_rts_stream #2
+    \ior_open:Nn \l__aoc_rts_stream { #2 }
+    \seq_clear:N #1
     \ior_map_inline:Nn \l__aoc_rts_stream
       {
         \seq_put_right:Nn #1 { ##1 }
+      }
+    \ior_close:N \l__aoc_rts_stream
+  }
+
+% The orbit map datatype stores a directed graph of orbits (e.g. X orbits Y,
+% Y orbits Z, etc.) as a key-value mapping. If a mapping X->Y is in an orbit
+% map, we interpret that as "X is in orbit about Y".
+%
+% Each object orbits exactly one other, except for the universal Center of
+% Mass (COM). However, each object can *be orbited by* more than one object,
+% and these queries are often the more interesting ones.
+%
+% The number of direct orbits is the size of the orbit map.
+%
+% The number of indirect orbits is a bit trickier.
+%   - Store a map of visited nodes called 'V'.
+%     - V maps a node to its number of indirect orbits.
+%   - Store a set of unvisited nodes called 'U'.
+%   - While U is not empty:
+%     - Pop some (u, a) from U.
+%       - 'u' is in orbit around 'a'.
+%     - If 'a' is not in V:
+%       - Recursively visit 'a', adding its orbits to 'u'.
+
+% \om_new:N creates a new, empty orbit map variable. The declaration is made
+% globally.
+\cs_set_eq:NN \om_new:N \prop_new:N
+
+% \om_direct_orbits:N <orbit map>
+% Returns the number of direct orbits in the map.
+\cs_set_eq:NN \om_direct_orbits:N \prop_count:N
+
+% \om_parse_file:Nn <orbit map> <filename>
+% Reads <filename> and parses it as an orbit map, storing it in <orbit map>.
+\seq_new:N \l__om_parse_tmpa_seq
+\seq_new:N \l__om_parse_tmpb_seq
+\tl_new:N \l__om_parse_tmpa_tl
+\cs_set:Npn \om_parse_file:Nn #1#2
+  {
+    \prop_clear:N #1
+    \aoc_read_to_seq:Nn \l__om_parse_tmpa_seq { #2 }
+    \aoc_parse_orbit_map_to_seq:NN \l__om_parse_tmpb_seq \l__om_parse_tmpa_seq
+    \seq_map_variable:NNn \l__om_parse_tmpb_seq \l__om_parse_tmpb_tl
+      {
+        \tl_set:Nx \l_tmpa_tl { \tl_head:N \l__om_parse_tmpb_tl }
+        \tl_set:Nx \l_tmpb_tl { \tl_tail:N \l__om_parse_tmpb_tl }
+        \prop_put:NVV #1 \l_tmpa_tl \l_tmpb_tl
+      }
+  }
+
+% Internal. Visits the given node, and possibly others recursively, updating
+% the unvisited map and indirect orbit counter int.
+\prop_new:N \l__om_visited_prop
+\prop_new:N \l__om_unvisited_prop
+\int_new:N \l__om_indirect_int
+\tl_new:N \l__om_orbits_around_tl
+\cs_set:Npn \om__visit:n #1
+  {
+    \prop_get:NnNT \l__om_unvisited_prop { #1 } \l__om_orbits_around_tl
+      {
+        % #1 is unvisited and orbits around \l__om_orbits_around_tl
+        \prop_get:NVNTF \l__om_visited_prop \l__om_orbits_around_tl \l__om_indirect_tl
+          {
+            % \l__om_orbits_around_tl is visited.
+            % Set Visited[#1] to 1 + \l__om_indirect_tl
+            \tl_set:Nx \l_tmpa_tl
+              {
+                \int_eval:n { 1 + \tl_use:N \l__om_indirect_tl }
+              }
+            \prop_put:NnV \l__om_visited_prop { #1 } \l_tmpa_tl
+            \int_add:Nn \l__om_indirect_int { \tl_use:N \l_tmpa_tl }
+            \prop_remove:Nn \l__om_unvisited_prop { #1 }
+          }
+          {
+            % \l__om_orbits_around_tl is not visited.
+            % Recursively compute Visited[##2]
+            \om__visit:x { \tl_use:N \l__om_orbits_around_tl }
+            \om__visit:n { #1 }
+          }
+      }
+  }
+\cs_generate_variant:Nn \om__visit:n { x }
+
+% Internal. Processes the next unvisited node and recurses, or quits if
+% empty.
+\tl_new:N \l__om_indirect_tl
+\cs_set:Npn \om__indirect_orbits:
+  {
+    \prop_map_inline:Nn \l__om_unvisited_prop
+      {
+        % ##1 orbits around ##2
+        \om__visit:n { ##1 }
+        \prop_map_break:
+      }
+    \prop_if_empty:NF \l__om_unvisited_prop
+      { \om__indirect_orbits: }
+  }
+
+% \om_indirect_orbits:NN <orbit-map> <int-var>
+% Stores the number of indirect orbits in <orbit-map> in the variable
+% specified by <int-var>.
+\cs_set:Npn \om_indirect_orbits:NN #1#2
+  {
+    \prop_clear:N \l__om_visited_prop
+    % Avoid a recursive loop at the base case.
+    \prop_put:Nnn \l__om_visited_prop
+      { COM } { -1 }
+
+    % Clear other values.
+    \prop_set_eq:NN \l__om_unvisited_prop #1
+    \int_zero:N \l__om_indirect_int
+
+    % Process the prop lists.
+    \om__indirect_orbits:
+
+    % Set the return value.
+    \int_set_eq:NN #2 \l__om_indirect_int
+  }
+
+% \om_total_orbits:NN <orbit map> <int-var>
+% Returns the total number of orbits (i.e. both direct and indirect) in the map.
+\cs_set:Npn \om_total_orbits:NN #1#2
+  {
+    \om_indirect_orbits:NN #1 \l_tmpa_int
+    \int_set:Nn #2
+      {
+        \om_direct_orbits:N #1
+        + \int_use:N \l_tmpa_int
       }
   }
 
 \START
 
-\TEST { aoc_parse_orbit:NNn }
+\tl_new:N \l_aoc_test_tl
+\TEST { aoc_parse_orbit:Nn }
   {
-    \tl_new:N \l_aoc_test_tl
     \aoc_parse_orbit:Nn \l_aoc_test_tl { COM)BOOK }
-    \ASSERT { \tl_head:N \l_aoc_test_tl } { COM }
-    \ASSERT { \tl_tail:N \l_aoc_test_tl } { BOOK }
+    \ASSERT { \tl_head:N \l_aoc_test_tl } { BOOK }
+    \ASSERT { \tl_tail:N \l_aoc_test_tl } { COM }
   }
 
 \TEST { aoc_read_to_seq:Nn }
   {
+    \seq_new:N \l_aoc_test_seq
+    \aoc_read_to_seq:Nn \l_aoc_test_seq { data/day_6_orbit_map_test.txt }
+    \ASSERT { \seq_use:Nn \l_aoc_test_seq { , } }
+      {
+        COM)B ,
+        B)C   ,
+        C)D   ,
+        D)E   ,
+        E)F   ,
+        B)G   ,
+        G)H   ,
+        D)I   ,
+        E)J   ,
+        J)K   ,
+        K)L
+      }
   }
 
-\TEST { aoc_parse_orbit_map:n }
+\TEST { aoc_parse_orbit_map_to_seq:NN }
   {
-    \seq_new:N \l_aoc_test_seq
-    \aoc_parse_orbit_map:Nn \l_aoc_test_seq
+    \seq_new:N \l_aoc_testinput_seq
+    \seq_new:N \l_aoc_testoutput_seq
+    \aoc_read_to_seq:Nn \l_aoc_testinput_seq { data/day_6_orbit_map_test.txt }
+
+    \aoc_parse_orbit_map_to_seq:NN \l_aoc_testoutput_seq \l_aoc_testinput_seq
+    \ASSERT { \seq_use:Nn \l_aoc_testoutput_seq { , } }
       {
+        {B}COM ,
+        {C}B   ,
+        {D}C   ,
+        {E}D   ,
+        {F}E   ,
+        {G}B   ,
+        {H}G   ,
+        {I}D   ,
+        {J}E   ,
+        {K}J   ,
+        {L}K
       }
-    \typeout{ \seq_use:Nn \l_aoc_test_seq { || } }
+  }
+
+% All orbit-map declarations are global.
+\om_new:N \l_aoc_tmp_om
+\TEST { om_parse_file:Nn }
+  {
+    \om_parse_file:Nn \l_aoc_tmp_om { data/day_6_orbit_map_test.txt }
+
+    \cs_set:Npn \aoc_assert_in:Nnn #1#2#3
+      {
+        \prop_get:NnN #1 { #2 } \l_aoc_test_tl
+        \ASSERT { \tl_use:N \l_aoc_test_tl } { #3 }
+      }
+
+    \aoc_assert_in:Nnn \l_aoc_tmp_om {B} {COM}
+    \aoc_assert_in:Nnn \l_aoc_tmp_om {C} {B}
+    \aoc_assert_in:Nnn \l_aoc_tmp_om {D} {C}
+    \aoc_assert_in:Nnn \l_aoc_tmp_om {E} {D}
+    \aoc_assert_in:Nnn \l_aoc_tmp_om {F} {E}
+    \aoc_assert_in:Nnn \l_aoc_tmp_om {G} {B}
+    \aoc_assert_in:Nnn \l_aoc_tmp_om {H} {G}
+    \aoc_assert_in:Nnn \l_aoc_tmp_om {I} {D}
+    \aoc_assert_in:Nnn \l_aoc_tmp_om {J} {E}
+    \aoc_assert_in:Nnn \l_aoc_tmp_om {K} {J}
+    \aoc_assert_in:Nnn \l_aoc_tmp_om {L} {K}
+  }
+
+\TEST { om_direct_orbits:N }
+  {
+    \om_parse_file:Nn \l_aoc_tmp_om { data/day_6_orbit_map_test.txt }
+    \ASSERT { \om_direct_orbits:N \l_aoc_tmp_om } { 11 }
+  }
+
+\int_new:N \l_aoc_test_int
+\TEST { om_indirect_orbits:NN }
+  {
+    \om_parse_file:Nn \l_aoc_tmp_om { data/day_6_orbit_map_test.txt }
+    \om_indirect_orbits:NN \l_aoc_tmp_om \l_aoc_test_int
+    \ASSERT { \int_use:N \l_aoc_test_int } { 31 }
+  }
+
+\TEST { om_total_orbits:NN }
+  {
+    \om_parse_file:Nn \l_aoc_tmp_om { data/day_6_orbit_map_test.txt }
+    \om_total_orbits:NN \l_aoc_tmp_om \l_aoc_test_int
+    \ASSERT { \int_use:N \l_aoc_test_int } { 42 }
+  }
+
+\TEST { Day~6~Part~1 }
+  {
+    \om_parse_file:Nn \l_aoc_tmp_om { data/day_6_orbit_map.txt }
+    \om_total_orbits:NN \l_aoc_tmp_om \l_aoc_test_int
+    \ASSERT { \int_use:N \l_aoc_test_int } { 186 597 }
   }
 
 \END
