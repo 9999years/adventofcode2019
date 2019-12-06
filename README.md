@@ -36,7 +36,6 @@ The bucket of languages includes:
 - Fortran
 - Forth
 - Zig
-- Nim
 - Pony
 - Dart
 
@@ -46,5 +45,6 @@ Languages used so far:
 - Racket
 - Go
 - Befunge
+- Nim
 
 [aoc]: https://adventofcode.com/

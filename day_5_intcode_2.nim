@@ -15,11 +15,6 @@ type
         opEquals,
         opHalt,
 
-    OpInfo = object
-        ty: OpType
-        code: int
-        width: int
-
     Program = seq[int]
 
     ArgIdx = tuple
@@ -30,35 +25,59 @@ type
         immediateMode,
         positionMode,
 
+    ArgType = enum
+        argAny,
+        argImmediate,
+
     Instruction = object
         argModes: seq[AddrMode]
         op: OpType
         idx: int
 
-    VirtualMachine = object
+    VirtualMachine = ref object
         prog: Program
         input: seq[int]
         output: seq[int]
 
+    OpInfo = object
+        ty: OpType
+        code: int
+        width: int
+        args: seq[ArgType]
+
 const
     # Tab /[,:]\zs/l1r0
     opInfo = {
-        opAdd:      OpInfo(ty: opAdd,      code: 1,  width: 4),
-        opMul:      OpInfo(ty: opMul,      code: 2,  width: 4),
-        opInput:    OpInfo(ty: opInput,    code: 3,  width: 2),
-        opOutput:   OpInfo(ty: opOutput,   code: 4,  width: 2),
-        opJNZ:      OpInfo(ty: opJNZ,      code: 5,  width: 3),
-        opJZ:       OpInfo(ty: opJZ,       code: 6,  width: 3),
-        opLessThan: OpInfo(ty: opLessThan, code: 7,  width: 4),
-        opEquals:   OpInfo(ty: opEquals,   code: 8,  width: 4),
-        opHalt:     OpInfo(ty: opHalt,     code: 99, width: 1),
+        opAdd:      OpInfo(ty: opAdd,      code: 1,  width: 4, args: @[argAny, argAny, argImmediate]),
+        opMul:      OpInfo(ty: opMul,      code: 2,  width: 4, args: @[argAny, argAny, argImmediate]),
+        opInput:    OpInfo(ty: opInput,    code: 3,  width: 2, args: @[argImmediate]),
+        opOutput:   OpInfo(ty: opOutput,   code: 4,  width: 2, args: @[argAny]),
+        opJNZ:      OpInfo(ty: opJNZ,      code: 5,  width: 3, args: @[argAny, argAny]),
+        opJZ:       OpInfo(ty: opJZ,       code: 6,  width: 3, args: @[argAny, argAny]),
+        opLessThan: OpInfo(ty: opLessThan, code: 7,  width: 4, args: @[argAny, argAny, argImmediate]),
+        opEquals:   OpInfo(ty: opEquals,   code: 8,  width: 4, args: @[argAny, argAny, argImmediate]),
+        opHalt:     OpInfo(ty: opHalt,     code: 99, width: 1, args: @[]),
     }.toTable
+
+    LHS_IDX = 0
+    RHS_IDX = 1
+    RET_IDX = 2
+
+    INPUT_RET = 0
+    OUTPUT_VAL = 0
+
+    JMP_CMP = 0
+    JMP_TO = 1
 
     opCodes = {
         opInfo[opAdd].code: opAdd,
         opInfo[opMul].code: opMul,
         opInfo[opInput].code: opInput,
         opInfo[opOutput].code: opOutput,
+        opInfo[opJNZ].code: opJNZ,
+        opInfo[opJZ].code: opJZ,
+        opInfo[opLessThan].code: opLessThan,
+        opInfo[opEquals].code: opEquals,
         opInfo[opHalt].code: opHalt,
     }.toTable
 
@@ -72,10 +91,14 @@ const
 proc args(ty: OpType): int = opInfo[ty].width - 1
 
 proc parseArgModes(ty: OpType, ins: int): seq[AddrMode] =
-    var
-        args = ins div instructionOpCodeSize
-    for _ in 1 .. ty.args():
-        result &= addrModes[args mod 10]
+    let mandatedArgModes = opInfo[ty].args
+    var args = ins div instructionOpCodeSize
+    for i in 0 ..< ty.args():
+        case mandatedArgModes[i]
+        of argAny:
+            result &= addrModes[args mod 10]
+        of argImmediate:
+            result &= immediateMode
         args = args div 10
     return result
 
@@ -86,9 +109,6 @@ iterator args(ins: Instruction): ArgIdx =
     for i, m in ins.argModes:
         yield (idx: ins.idx + i + 1, mode: m)
 
-proc outputArg(prog: Program, ins: Instruction): ArgIdx =
-    return (idx: ins.idx + high(ins.argModes) + 1, mode: immediateMode)
-
 proc parse(prog: Program, idx: int): Instruction =
     var
         ins = prog[idx]
@@ -97,42 +117,53 @@ proc parse(prog: Program, idx: int): Instruction =
     return Instruction(argModes: argModes, op: ty, idx: idx)
 
 proc argValue(prog: Program, idx: ArgIdx): int =
-    var
-        immediate = prog[idx.idx]
+    var immediate = prog[idx.idx]
     case idx.mode
     of immediateMode:
         return immediate
     of positionMode:
         return prog[immediate]
 
-proc args(prog: Program, ins: Instruction): (seq[int], int) =
+proc args(prog: Program, ins: Instruction): seq[int] =
     for i in ins.args():
-        result[0] &= prog.argValue(i)
-    result[1] = prog.argValue(prog.outputArg(ins))
-    return
+        result &= prog.argValue(i)
 
-proc evalInstruction(vm: var VirtualMachine, ins: Instruction): bool =
+proc evalInstruction(vm: var VirtualMachine, ins: Instruction): (bool, int) =
+    result[1] = opInfo[ins.op].width
     case ins.op
     of opAdd:
-        let (args, retAddr) = vm.prog.args(ins)
-        vm.prog[retAddr] = args[0] + args[1]
+        let args = vm.prog.args(ins)
+        vm.prog[args[RET_IDX]] = args[LHS_IDX] + args[RHS_IDX]
     of opMul:
-        let (args, retAddr) = vm.prog.args(ins)
-        vm.prog[retAddr] = args[0] * args[1]
+        let args = vm.prog.args(ins)
+        vm.prog[args[RET_IDX]] = args[LHS_IDX] * args[RHS_IDX]
     of opInput:
-        let (_, retAddr) = vm.prog.args(ins)
-        vm.prog[retAddr] = vm.input.pop()
+        let args = vm.prog.args(ins)
+        vm.prog[args[INPUT_RET]] = vm.input.pop()
     of opOutput:
-        let (args, _) = vm.prog.args(ins)
-        vm.output &= args[0]
+        let args = vm.prog.args(ins)
+        vm.output &= args[OUTPUT_VAL]
+    of opJNZ, opJZ:
+        let args = vm.prog.args(ins)
+        if (ins.op == opJNZ and args[JMP_CMP] != 0) or
+                (ins.op == opJZ and args[JMP_CMP] == 0):
+            result[1] = args[JMP_TO] - ins.idx
+    of opLessThan:
+        let args = vm.prog.args(ins)
+        vm.prog[args[RET_IDX]] =
+            if args[LHS_IDX] < args[RHS_IDX]: 1
+            else: 0
+    of opEquals:
+        let args = vm.prog.args(ins)
+        vm.prog[args[RET_IDX]] =
+            if args[LHS_IDX] == args[RHS_IDX]: 1
+            else: 0
     of opHalt:
-        return true
-    return false
+        result[0] = true
 
 proc evalInstruction(vm: var VirtualMachine, idx: int): (bool, int) =
-    var
-        ins = vm.prog.parse(idx)
-    return (evalInstruction(vm, ins), opInfo[ins.op].width)
+    var ins = vm.prog.parse(idx)
+    return evalInstruction(vm, ins)
 
 proc eval(vm: var VirtualMachine): seq[int] =
     var
@@ -144,11 +175,14 @@ proc eval(vm: var VirtualMachine): seq[int] =
         idx += advance
     return vm.output
 
-proc evalIntcode(s: seq[int]): seq[int] =
-    var
-        vm = VirtualMachine(prog: s, input: @[], output: @[])
-    vm.eval()
+proc evalIntcode(prog: Program): seq[int] =
+    var vm = VirtualMachine(prog: prog, input: @[], output: @[])
+    discard vm.eval()
     return vm.prog
+
+proc intcodeOutput(prog: Program, input: int = 0): seq[int] =
+    var vm = VirtualMachine(prog: prog, input: @[input], output: @[])
+    return vm.eval()
 
 proc readAndSplitToInt(path: string): seq[int] =
     let
@@ -165,9 +199,6 @@ proc gravityAssistProgram(noun, verb: int): Program =
 proc TESTProgram(): Program =
     return readAndSplitToInt("data/day_5_TEST_input.txt")
 
-proc asVM(prog: Program, input: int): VirtualMachine =
-    return VirtualMachine(prog: prog, input: @[input], output: @[])
-
 suite "Advent of Code, Day 5: Sunny with a Chance of Asteroids":
     test "Simple intcode tests":
         check(evalIntcode(@[2, 3, 0, 3, 99]) == [2, 3, 0, 6, 99])
@@ -179,62 +210,70 @@ suite "Advent of Code, Day 5: Sunny with a Chance of Asteroids":
         check(evalIntcode(gravityAssistProgram(12, 2))[0] == 6_327_510)
 
     test "Day 5, Part 1":
-        check(TESTProgram().asVM(1).eval() ==
+        check(intcodeOutput(TESTProgram(), 1) ==
             [0, 0, 0, 0, 0, 0, 0, 0, 0, 14_155_342])
 
     test "Equal to 8 (position-mode)":
-        let equalTo8 = [3, 9, 8, 9, 10, 9, 4, 9, 99, -1, 8]
-        check(equalTo8.asVM(8).eval() == [1])
-        check(equalTo8.asVM(7).eval() == [0])
-        check(equalTo8.asVM(9).eval() == [0])
-        check(equalTo8.asVM(-3).eval() == [0])
+        let equalTo8 = @[3, 9, 8, 9, 10, 9, 4, 9, 99, -1, 8]
+        check(intcodeOutput(equalTo8, 8) == [1])
+        check(intcodeOutput(equalTo8, 7) == [0])
+        check(intcodeOutput(equalTo8, 9) == [0])
+        check(intcodeOutput(equalTo8, -3) == [0])
 
     test "Less than 8 (position-mode)":
-        let lessThan8 = [3, 9, 7, 9, 10, 9, 4, 9, 99, -1, 8]
-        check(lessThan8.asVM(8).eval() == [0])
-        check(lessThan8.asVM(7).eval() == [1])
-        check(lessThan8.asVM(9).eval() == [0])
-        check(lessThan8.asVM(10).eval() == [0])
-        check(lessThan8.asVM(-3).eval() == [1])
+        let lessThan8 = @[3, 9, 7, 9, 10, 9, 4, 9, 99, -1, 8]
+        check(intcodeOutput(lessThan8, 8) == [0])
+        check(intcodeOutput(lessThan8, 7) == [1])
+        check(intcodeOutput(lessThan8, 9) == [0])
+        check(intcodeOutput(lessThan8, 10) == [0])
+        check(intcodeOutput(lessThan8, -3) == [1])
 
     test "Equal to 8 (immediate-mode)":
-        let equal8Immediate = [3, 3, 1108, -1, 8, 3, 4, 3, 99]
-        check(equalTo8Immediate.asVM(8).eval() == [1])
-        check(equalTo8Immediate.asVM(7).eval() == [0])
-        check(equalTo8Immediate.asVM(9).eval() == [0])
-        check(equalTo8Immediate.asVM(-3).eval() == [0])
+        let equalTo8Immediate = @[3, 3, 1108, -1, 8, 3, 4, 3, 99]
+        check(intcodeOutput(equalTo8Immediate, 8) == [1])
+        check(intcodeOutput(equalTo8Immediate, 7) == [0])
+        check(intcodeOutput(equalTo8Immediate, 9) == [0])
+        check(intcodeOutput(equalTo8Immediate, -3) == [0])
 
     test "Less than 8 (immediate-mode)":
-        let lessThan8Immediate = [3, 3, 1107, -1, 8, 3, 4, 3, 99]
-        check(lessThan8Immediate.asVM(8).eval() == [0])
-        check(lessThan8Immediate.asVM(7).eval() == [1])
-        check(lessThan8Immediate.asVM(9).eval() == [0])
-        check(lessThan8Immediate.asVM(10).eval() == [0])
-        check(lessThan8Immediate.asVM(-3).eval() == [1])
+        let lessThan8Immediate = @[3, 3, 1107, -1, 8, 3, 4, 3, 99]
+        check(intcodeOutput(lessThan8Immediate, 8) == [0])
+        check(intcodeOutput(lessThan8Immediate, 7) == [1])
+        check(intcodeOutput(lessThan8Immediate, 9) == [0])
+        check(intcodeOutput(lessThan8Immediate, 10) == [0])
+        check(intcodeOutput(lessThan8Immediate, -3) == [1])
 
     test "Jumps (position-mode)":
-        let prog = [3, 12, 6, 12, 15, 1, 13, 14, 13, 4, 13, 99, -1, 0, 1, 9]
+        let prog = @[3, 12, 6, 12, 15, 1, 13, 14, 13, 4, 13, 99, -1, 0, 1, 9]
         # 0 if input is 0, 1 if non-zero
-        check(prog.asVM(0).eval() == [0])
-        check(prog.asVM(1).eval() == [1])
-        check(prog.asVM(993802).eval() == [1])
-        check(prog.asVM(-392).eval() == [1])
+        check(intcodeOutput(prog, 0) == [0])
+        check(intcodeOutput(prog, 1) == [1])
+        check(intcodeOutput(prog, 993802) == [1])
+        check(intcodeOutput(prog, -392) == [1])
 
     test "Jumps (immediate-mode)":
-        let prog = [3, 3, 1105, -1, 9, 1101, 0, 0, 12, 4, 12, 99, 1]
+        let prog = @[3, 3, 1105, -1, 9, 1101, 0, 0, 12, 4, 12, 99, 1]
         # 0 if input is 0, 1 if non-zero
-        check(prog.asVM(0).eval() == [0])
-        check(prog.asVM(1).eval() == [1])
-        check(prog.asVM(993802).eval() == [1])
-        check(prog.asVM(-392).eval() == [1])
+        check(intcodeOutput(prog, 0) == [0])
+        check(intcodeOutput(prog, 1) == [1])
+        check(intcodeOutput(prog, 993802) == [1])
+        check(intcodeOutput(prog, -392) == [1])
 
     test "Large example":
-        let prog = [
+        let prog = @[
             3, 21, 1008, 21, 8, 20, 1005, 20, 22, 107, 8, 21, 20, 1006, 20, 31,
             1106, 0, 36, 98, 0, 0, 1002, 21, 125, 20, 4, 20, 1105, 1, 46, 104,
             999, 1105, 1, 46, 1101, 1000, 1, 20, 4, 20, 1105, 1, 46, 98, 99
         ]
+        check(intcodeOutput(prog, -3) == [999])
+        check(intcodeOutput(prog, 0) == [999])
+        check(intcodeOutput(prog, 1) == [999])
+        check(intcodeOutput(prog, 7) == [999])
+        check(intcodeOutput(prog, 8) == [1000])
+        check(intcodeOutput(prog, 9) == [1001])
+        check(intcodeOutput(prog, 10) == [1001])
+        check(intcodeOutput(prog, 1039) == [1001])
+        check(intcodeOutput(prog, 4895096) == [1001])
 
     test "Day 5, Part 2 (final)":
-        check(TESTProgram().asVM(5).eval() ==
-            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
+        check(intcodeOutput(TESTProgram(), 5) == [8684145])
