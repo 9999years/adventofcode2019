@@ -1,0 +1,70 @@
+\input{regression-test.tex}
+\RequirePackage{expl3}
+\ExplSyntaxOn
+
+\prop_new:N \g_aoc_orbits_prop
+
+\cs_set:Npn \aoc_parse_orbit:Nn #1#2
+  {
+    \seq_new:N \l__aoc_po_tmp_seq
+    \tl_new:N \l__aoc_po_tmpa_tl
+    \tl_new:N \l__aoc_po_tmpb_tl
+    \seq_set_split:Nnn \l__aoc_po_tmp_seq { ) } { #2 }
+    \seq_get_left:NN \l__aoc_po_tmp_seq \l__aoc_po_tmpa_tl
+    \seq_get_right:NN \l__aoc_po_tmp_seq \l__aoc_po_tmpb_tl
+    \tl_set:Nx #1
+      {
+        { \tl_use:N \l__aoc_po_tmpa_tl }
+        \tl_use:N \l__aoc_po_tmpb_tl
+      }
+  }
+
+\cs_set:Npn \aoc_parse_orbit_map:Nn #1#2
+  {
+    \seq_new:N \l__aoc_pom_tmp_seq
+    \seq_set_split:Nnn \l__aoc_po_tmp_seq { ~ } { #2 }
+    \seq_clear:N #1
+    \typeout{ #2 }
+    \typeout{ \seq_use:Nn \l__aoc_pom_tmp_seq { || } }
+    \seq_map_inline:Nn \l__aoc_pom_tmp_seq
+      {
+        \typeout { #1 }
+        \typeout { ##1 }
+        \seq_put_right:Nn #1 { ##1 }
+      }
+  }
+
+\cs_set:Npn \aoc_read_to_seq:Nn #1#2
+  {
+    \ior_open:Nn \l__aoc_rts_stream #2
+    \ior_map_inline:Nn \l__aoc_rts_stream
+      {
+        \seq_put_right:Nn #1 { ##1 }
+      }
+  }
+
+\START
+
+\TEST { aoc_parse_orbit:NNn }
+  {
+    \tl_new:N \l_aoc_test_tl
+    \aoc_parse_orbit:Nn \l_aoc_test_tl { COM)BOOK }
+    \ASSERT { \tl_head:N \l_aoc_test_tl } { COM }
+    \ASSERT { \tl_tail:N \l_aoc_test_tl } { BOOK }
+  }
+
+\TEST { aoc_read_to_seq:Nn }
+  {
+  }
+
+\TEST { aoc_parse_orbit_map:n }
+  {
+    \seq_new:N \l_aoc_test_seq
+    \aoc_parse_orbit_map:Nn \l_aoc_test_seq
+      {
+      }
+    \typeout{ \seq_use:Nn \l_aoc_test_seq { || } }
+  }
+
+\END
+\batchmode
