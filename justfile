@@ -26,7 +26,12 @@ day-4:
 day-5:
 	nim compile --run ./day_5_intcode_2.nim
 
+# Universal Orbit Map (Haskell)
+day-6:
+	runghc ./day_6_orbits
+
 # Remove generated files and binaries
 clean:
 	rm -f day_1_fuel
 	rm -f day_5_intcode_2
+	rm -f day_6_orbits
