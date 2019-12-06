@@ -28,7 +28,7 @@ day-5:
 
 # Universal Orbit Map (LaTeX3)
 day-6:
-	latex ./day_6_orbits.tex || true
+	latex ./day_6_orbits.tex
 
 # Remove generated files and binaries
 clean:
