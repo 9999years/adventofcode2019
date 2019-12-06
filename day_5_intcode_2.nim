@@ -9,6 +9,10 @@ type
         opMul,
         opInput,
         opOutput,
+        opJNZ, # Jump if non-zero
+        opJZ, # Jump if zero
+        opLessThan,
+        opEquals,
         opHalt,
 
     OpInfo = object
@@ -37,12 +41,17 @@ type
         output: seq[int]
 
 const
+    # Tab /[,:]\zs/l1r0
     opInfo = {
-        opAdd:    OpInfo(ty: opAdd,    code: 1,  width: 4),
-        opMul:    OpInfo(ty: opMul,    code: 2,  width: 4),
-        opInput:  OpInfo(ty: opInput,  code: 3,  width: 2),
-        opOutput: OpInfo(ty: opOutput, code: 4,  width: 2),
-        opHalt:   OpInfo(ty: opHalt,   code: 99, width: 1),
+        opAdd:      OpInfo(ty: opAdd,      code: 1,  width: 4),
+        opMul:      OpInfo(ty: opMul,      code: 2,  width: 4),
+        opInput:    OpInfo(ty: opInput,    code: 3,  width: 2),
+        opOutput:   OpInfo(ty: opOutput,   code: 4,  width: 2),
+        opJNZ:      OpInfo(ty: opJNZ,      code: 5,  width: 3),
+        opJZ:       OpInfo(ty: opJZ,       code: 6,  width: 3),
+        opLessThan: OpInfo(ty: opLessThan, code: 7,  width: 4),
+        opEquals:   OpInfo(ty: opEquals,   code: 8,  width: 4),
+        opHalt:     OpInfo(ty: opHalt,     code: 99, width: 1),
     }.toTable
 
     opCodes = {
@@ -125,7 +134,7 @@ proc evalInstruction(vm: var VirtualMachine, idx: int): (bool, int) =
         ins = vm.prog.parse(idx)
     return (evalInstruction(vm, ins), opInfo[ins.op].width)
 
-proc eval(vm: var VirtualMachine) =
+proc eval(vm: var VirtualMachine): seq[int] =
     var
         halted = false
         idx = 0
@@ -133,6 +142,7 @@ proc eval(vm: var VirtualMachine) =
     while not halted:
         (halted, advance) = vm.evalInstruction(idx)
         idx += advance
+    return vm.output
 
 proc evalIntcode(s: seq[int]): seq[int] =
     var
@@ -155,6 +165,9 @@ proc gravityAssistProgram(noun, verb: int): Program =
 proc TESTProgram(): Program =
     return readAndSplitToInt("data/day_5_TEST_input.txt")
 
+proc asVM(prog: Program, input: int): VirtualMachine =
+    return VirtualMachine(prog: prog, input: @[input], output: @[])
+
 suite "Advent of Code, Day 5: Sunny with a Chance of Asteroids":
     test "Simple intcode tests":
         check(evalIntcode(@[2, 3, 0, 3, 99]) == [2, 3, 0, 6, 99])
@@ -166,11 +179,62 @@ suite "Advent of Code, Day 5: Sunny with a Chance of Asteroids":
         check(evalIntcode(gravityAssistProgram(12, 2))[0] == 6_327_510)
 
     test "Day 5, Part 1":
-        let code = TESTProgram()
-        var vm = VirtualMachine(
-            prog: code,
-            input: @[1],
-            output: @[],
-        )
-        vm.eval()
-        check(vm.output == [0, 0, 0, 0, 0, 0, 0, 0, 0, 14_155_342])
+        check(TESTProgram().asVM(1).eval() ==
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 14_155_342])
+
+    test "Equal to 8 (position-mode)":
+        let equalTo8 = [3, 9, 8, 9, 10, 9, 4, 9, 99, -1, 8]
+        check(equalTo8.asVM(8).eval() == [1])
+        check(equalTo8.asVM(7).eval() == [0])
+        check(equalTo8.asVM(9).eval() == [0])
+        check(equalTo8.asVM(-3).eval() == [0])
+
+    test "Less than 8 (position-mode)":
+        let lessThan8 = [3, 9, 7, 9, 10, 9, 4, 9, 99, -1, 8]
+        check(lessThan8.asVM(8).eval() == [0])
+        check(lessThan8.asVM(7).eval() == [1])
+        check(lessThan8.asVM(9).eval() == [0])
+        check(lessThan8.asVM(10).eval() == [0])
+        check(lessThan8.asVM(-3).eval() == [1])
+
+    test "Equal to 8 (immediate-mode)":
+        let equal8Immediate = [3, 3, 1108, -1, 8, 3, 4, 3, 99]
+        check(equalTo8Immediate.asVM(8).eval() == [1])
+        check(equalTo8Immediate.asVM(7).eval() == [0])
+        check(equalTo8Immediate.asVM(9).eval() == [0])
+        check(equalTo8Immediate.asVM(-3).eval() == [0])
+
+    test "Less than 8 (immediate-mode)":
+        let lessThan8Immediate = [3, 3, 1107, -1, 8, 3, 4, 3, 99]
+        check(lessThan8Immediate.asVM(8).eval() == [0])
+        check(lessThan8Immediate.asVM(7).eval() == [1])
+        check(lessThan8Immediate.asVM(9).eval() == [0])
+        check(lessThan8Immediate.asVM(10).eval() == [0])
+        check(lessThan8Immediate.asVM(-3).eval() == [1])
+
+    test "Jumps (position-mode)":
+        let prog = [3, 12, 6, 12, 15, 1, 13, 14, 13, 4, 13, 99, -1, 0, 1, 9]
+        # 0 if input is 0, 1 if non-zero
+        check(prog.asVM(0).eval() == [0])
+        check(prog.asVM(1).eval() == [1])
+        check(prog.asVM(993802).eval() == [1])
+        check(prog.asVM(-392).eval() == [1])
+
+    test "Jumps (immediate-mode)":
+        let prog = [3, 3, 1105, -1, 9, 1101, 0, 0, 12, 4, 12, 99, 1]
+        # 0 if input is 0, 1 if non-zero
+        check(prog.asVM(0).eval() == [0])
+        check(prog.asVM(1).eval() == [1])
+        check(prog.asVM(993802).eval() == [1])
+        check(prog.asVM(-392).eval() == [1])
+
+    test "Large example":
+        let prog = [
+            3, 21, 1008, 21, 8, 20, 1005, 20, 22, 107, 8, 21, 20, 1006, 20, 31,
+            1106, 0, 36, 98, 0, 0, 1002, 21, 125, 20, 4, 20, 1105, 1, 46, 104,
+            999, 1105, 1, 46, 1101, 1000, 1, 20, 4, 20, 1105, 1, 46, 98, 99
+        ]
+
+    test "Day 5, Part 2 (final)":
+        check(TESTProgram().asVM(5).eval() ==
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
