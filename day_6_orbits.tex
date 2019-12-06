@@ -254,7 +254,7 @@
     \seq_if_empty:NF \l__om_bfs_discovery_seq { \om__shortest_path: }
   }
 
-% \om_shortest_path:NN <seq var> <orbit map> <search from> <search to>
+% \om_shortest_path:NNnn <seq var> <orbit map> <search from> <search to>
 % Breadth-first search for pathfinding on an orbit map.
 \cs_set:Npn \om_shortest_path:NNnn #1#2#3#4
   {
@@ -291,6 +291,13 @@
         \seq_put_right:NV #1 \l_tmpb_tl
         \str_set:Nx \l_tmpa_str { \tl_use:N \l_tmpb_tl }
       }
+  }
+
+% \om_min_orbital_transfers:NNnn <int var> <orbit map> <search from> <search to>
+\cs_set:Npn \om_min_orbital_transfers:NNnn #1#2#3#4
+  {
+    \om_shortest_path:NNnn \l_tmpa_seq #2 { #3 } { #4 }
+    \int_set:Nn #1 { \seq_count:N \l_tmpa_seq - 3 }
   }
 
 \START
@@ -392,12 +399,12 @@
     \ASSERT { \int_use:N \l_aoc_test_int } { 42 }
   }
 
-% \TEST { Day~6~Part~1 }
-  % {
-    % \om_parse_file:Nn \l_aoc_tmp_om { data/day_6_orbit_map.txt }
-    % \om_total_orbits:NN \l_aoc_test_int \l_aoc_tmp_om
-    % \ASSERT { \int_use:N \l_aoc_test_int } { 186 597 }
-  % }
+\TEST { Day~6~Part~1 }
+  {
+    \om_parse_file:Nn \l_aoc_tmp_om { data/day_6_orbit_map.txt }
+    \om_total_orbits:NN \l_aoc_test_int \l_aoc_tmp_om
+    \ASSERT { \int_use:N \l_aoc_test_int } { 186 597 }
+  }
 
 \TEST { BFS }
   {
@@ -413,6 +420,16 @@
       , K
       , YOU
       }
+
+      \om_min_orbital_transfers:NNnn \l_tmpb_int \l_aoc_tmp_om { YOU } { SAN }
+      \ASSERT { \int_use:N \l_tmpb_int } { 4 }
+  }
+
+\TEST { Day~6~Part~2 }
+  {
+    \om_parse_file:Nn \l_aoc_tmp_om { data/day_6_orbit_map.txt }
+    \om_min_orbital_transfers:NNnn \l_tmpb_int \l_aoc_tmp_om { YOU } { SAN }
+    \ASSERT { \int_use:N \l_tmpb_int } { 412 }
   }
 
 \END
