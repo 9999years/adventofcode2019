@@ -100,6 +100,10 @@ bool push(struct Stack *stack, int val) {
   return true;
 }
 int pop(struct Stack *stack) {
+  if (stack->top == 0) {
+    printf("Attempted to pop off of empty stack!\n");
+    return 0;
+  }
   stack->top--;
   return stack->s[stack->top + 1];
 }
@@ -118,6 +122,12 @@ void init_vm(struct VirtualMachine *vm) {
   new_stack(vm->input);
   vm->output = malloc(sizeof(struct Stack));
   new_stack(vm->output);
+}
+
+void reset_vm(struct VirtualMachine *vm) {
+  vm->ip = 0;
+  vm->input->top = 0;
+  vm->output->top = 0;
 }
 
 int get_arg(struct VirtualMachine *vm, enum Mode mode, size_t idx) {
@@ -264,6 +274,65 @@ int parse_file(FILE *fp, struct VirtualMachine *vm) {
   return i;
 }
 
+void load_amplifier_software(struct VirtualMachine *vm) {
+  FILE *fp = fopen("data/day_7_amplifier_input.txt", "r");
+  parse_file(fp, vm);
+  fclose(fp);
+}
+
+int thruster_signal(struct VirtualMachine *vm, int input[5]) {
+  int *prog = malloc(sizeof(int) * PROG_CAP);
+  memcpy(prog, vm->program, sizeof(int) * PROG_CAP);
+
+  int prev_output = 0;
+  for (int i = 0; i < 5; i++) {
+    push(vm->input, prev_output);
+    push(vm->input, input[i]);
+    eval(vm);
+    prev_output = pop(vm->output);
+    reset_vm(vm);
+    memcpy(vm->program, prog, sizeof(int) * PROG_CAP);
+  }
+  return prev_output;
+}
+
+int find_max_thruster_signal(struct VirtualMachine *vm) {
+  int cur_seq[] = {0, 1, 2, 3, 4};
+  int max_signal = 0;
+  for (int a = 0; a < 5; a++) {
+    cur_seq[0] = a;
+    for (int b = 0; b < 5; b++) {
+      if (b == a) {
+        continue;
+      }
+      cur_seq[1] = b;
+      for (int c = 0; c < 5; c++) {
+        if (c == a || c == b) {
+          continue;
+        }
+        cur_seq[2] = c;
+        for (int d = 0; d < 5; d++) {
+          if (d == a || d == b || d == c) {
+            continue;
+          }
+          cur_seq[3] = d;
+          for (int e = 0; e < 5; e++) {
+            if (e == a || e == b || e == c || e == d) {
+              continue;
+            }
+            cur_seq[4] = e;
+            int signal = thruster_signal(vm, cur_seq);
+            if (signal > max_signal) {
+              max_signal = signal;
+            }
+          }
+        }
+      }
+    }
+  }
+  return max_signal;
+}
+
 bool assert_eq(int a, int b) {
   if (a != b) {
     printf("Assertion failed:\n"
@@ -393,7 +462,30 @@ void test_day_5_part_2() {
   FILE *fp = fopen("data/day_5_TEST_input.txt", "r");
   parse_file(fp, vm_);
   fclose(fp);
-  // INTCODE_CHECK_IO(vm_->program, 678, 5, 8684145);
+  INTCODE_CHECK_IO(vm_->program, 678, 5, 8684145);
+  TEST_FIN(failed)
+}
+
+void test_maximize_1() {
+  bool failed = false;
+  struct VirtualMachine *vm = malloc(sizeof(struct VirtualMachine));
+  init_vm(vm);
+  int prog[] = {3, 15, 3, 16, 1002, 16, 10, 16, 1, 16, 15, 15, 4, 15, 99, 0, 0};
+  memcpy(vm->program, prog, sizeof(prog));
+  int seq[] = {4, 3, 2, 1, 0};
+  assert_eq(thruster_signal(vm, seq), 43210);
+  assert_eq(find_max_thruster_signal(vm), 43210);
+  TEST_FIN(failed)
+}
+
+void test_day_7_part_1() {
+  bool failed = false;
+  struct VirtualMachine *vm = malloc(sizeof(struct VirtualMachine));
+  init_vm(vm);
+  FILE *fp = fopen("data/day_7_amplifier_input.txt", "r");
+  parse_file(fp, vm);
+  fclose(fp);
+  assert_eq(find_max_thruster_signal(vm), 255840);
   TEST_FIN(failed)
 }
 
@@ -410,6 +502,9 @@ int main(int argc, const char *argv[]) {
   test_jumps_pos();
   test_jumps_imm();
   test_day_5_part_2();
+  test_maximize_1();
+
+  test_day_7_part_1();
 
   printf("\n");
   printf("Ran %d tests", TEST_COUNT);
