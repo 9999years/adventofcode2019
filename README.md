@@ -10,14 +10,11 @@ The bucket of languages includes:
 - Perl
 - Java
 - Python
-- C
 - C++
 - TypeScript
 - PowerShell
-- LaTeX
 - PHP
 - Bash
-- Ruby
 - Mathematica
 - Haskell
 - C#
@@ -46,5 +43,7 @@ Languages used so far:
 - Go
 - Befunge
 - Nim
+- LaTeX
+- C
 
 [aoc]: https://adventofcode.com/

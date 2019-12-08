@@ -30,8 +30,17 @@ day-5:
 day-6:
 	latex ./day_6_orbits.tex
 
+# Amplification Circuit (C)
+day-7:
+	gcc ./day_7_intcode_3.c \
+		-o day_7_intcode_3 \
+		-std=c99 \
+		-Wall -Werror -Wpedantic
+	./day_7_intcode_3
+
 # Remove generated files and binaries
 clean:
 	rm -f day_1_fuel
 	rm -f day_5_intcode_2
 	rm -f day_6_orbits.aux
+	rm -f day_7_intcode_3
