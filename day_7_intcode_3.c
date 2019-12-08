@@ -91,21 +91,37 @@ void init_instruction(struct Instruction *ins) {
 }
 
 void new_stack(struct Stack *stack) { stack->top = 0; }
+
 bool push(struct Stack *stack, int val) {
   if (stack->top >= INPUT_CAP - 1) {
+    printf("Attempted to push onto full stack!\n");
     return false;
   }
-  stack->top++;
   stack->s[stack->top] = val;
+  stack->top++;
   return true;
 }
+
 int pop(struct Stack *stack) {
-  if (stack->top == 0) {
+  if (stack->top <= 0) {
     printf("Attempted to pop off of empty stack!\n");
     return 0;
   }
   stack->top--;
-  return stack->s[stack->top + 1];
+  return stack->s[stack->top];
+}
+
+bool enqueue(struct Stack *stack, int val) {
+  if (stack->top >= INPUT_CAP - 1) {
+    return false;
+  }
+  stack->s[stack->top] = stack->s[stack->top - 1];
+  for (int i = stack->top - 1; i >= 0; i--) {
+    stack->s[i] = stack->s[i - 1];
+  }
+  stack->s[0] = val;
+  stack->top++;
+  return true;
 }
 
 void print_arr(int *a, int items) {
@@ -113,7 +129,10 @@ void print_arr(int *a, int items) {
   for (int i = 0; i < items - 1; i++) {
     printf("%d, ", a[i]);
   }
-  printf("%d]\n", a[items - 1]);
+  if (items != 0) {
+    printf("%d", a[items - 1]);
+  }
+  printf("]\n");
 }
 
 void init_vm(struct VirtualMachine *vm) {
@@ -220,7 +239,7 @@ bool eval_instruction(struct VirtualMachine *vm, struct Instruction *ins) {
     vm->program[args[INPUT_RET]] = pop(vm->input);
     break;
   case OpOutput:
-    push(vm->output, args[OUTPUT_VAL]);
+    enqueue(vm->output, args[OUTPUT_VAL]);
     break;
   case OpJNZ:
   case OpJZ:
@@ -250,18 +269,59 @@ void print_vm(struct VirtualMachine *vm) {
   print_arr(vm->program, PROG_CAP);
 }
 
+bool eval_one(struct VirtualMachine *vm, struct Instruction *ins) {
+  get_instruction(vm, ins);
+  return eval_instruction(vm, ins);
+}
+
 void eval(struct VirtualMachine *vm) {
   vm->ip = 0;
   struct Instruction *ins = malloc(sizeof(struct Instruction));
   init_instruction(ins);
-  get_instruction(vm, ins);
-  while (eval_instruction(vm, ins)) {
+  while (eval_one(vm, ins)) {
     if (vm->ip >= PROG_CAP) {
       printf("Instruction pointer out of bounds at %lu!\n", vm->ip);
       print_vm(vm);
       return;
     }
-    get_instruction(vm, ins);
+  }
+}
+
+bool eval_until_output(struct VirtualMachine *vm, struct Instruction *ins) {
+  ins->op = OpAdd;
+  while (ins->op != OpOutput) {
+    if (!eval_one(vm, ins)) {
+      return false;
+    }
+  }
+  return true;
+}
+
+void eval_looped(struct VirtualMachine *vm[], int input[], size_t count) {
+  bool *halted = malloc(sizeof(bool) * count);
+  int halted_count = 0;
+  for (int i = 0; i < count; i++) {
+    push(vm[i]->input, input[i]);
+    vm[i]->ip = 0;
+    halted[i] = false;
+  }
+  enqueue(vm[0]->input, 0);
+
+  struct Instruction *ins = malloc(sizeof(struct Instruction));
+  init_instruction(ins);
+
+  while (halted_count < count) {
+    for (int i = 0; i < count; i++) {
+      if (!halted[i]) {
+        halted[i] |= !eval_until_output(vm[i], ins);
+        if (halted[i]) {
+          halted_count++;
+        } else {
+          size_t next = (i + 1 + count) % count;
+          enqueue(vm[next]->input, pop(vm[i]->output));
+        }
+      }
+    }
   }
 }
 
@@ -297,7 +357,7 @@ int thruster_signal(struct VirtualMachine *vm, int input[5]) {
 }
 
 int find_max_thruster_signal(struct VirtualMachine *vm) {
-  int cur_seq[] = {0, 1, 2, 3, 4};
+  int cur_seq[] = {0, 0, 0, 0, 0};
   int max_signal = 0;
   for (int a = 0; a < 5; a++) {
     cur_seq[0] = a;
@@ -322,6 +382,61 @@ int find_max_thruster_signal(struct VirtualMachine *vm) {
             }
             cur_seq[4] = e;
             int signal = thruster_signal(vm, cur_seq);
+            if (signal > max_signal) {
+              max_signal = signal;
+            }
+          }
+        }
+      }
+    }
+  }
+  return max_signal;
+}
+
+int feedback_thruster_signal(struct VirtualMachine *vms[], int input[],
+                             size_t count) {
+  eval_looped(vms, input, count);
+  return pop(vms[0]->input);
+}
+
+int find_max_feedback_thruster_signal(struct VirtualMachine *vm) {
+  struct VirtualMachine *vms[5];
+  for (int i = 0; i < 5; i++) {
+    vms[i] = malloc(sizeof(struct VirtualMachine));
+    init_vm(vms[i]);
+    memcpy(vms[i]->program, vm->program, PROG_CAP);
+  }
+
+  int cur_seq[] = {5, 6, 7, 8, 9};
+  int max_signal = 0;
+  for (int a = 5; a < 10; a++) {
+    cur_seq[0] = a;
+    for (int b = 5; b < 10; b++) {
+      if (b == a) {
+        continue;
+      }
+      cur_seq[1] = b;
+      for (int c = 5; c < 10; c++) {
+        if (c == a || c == b) {
+          continue;
+        }
+        cur_seq[2] = c;
+        for (int d = 5; d < 10; d++) {
+          if (d == a || d == b || d == c) {
+            continue;
+          }
+          cur_seq[3] = d;
+          for (int e = 5; e < 10; e++) {
+            if (e == a || e == b || e == c || e == d) {
+              continue;
+            }
+            cur_seq[4] = e;
+
+            for (int i = 0; i < 5; i++) {
+              memcpy(vms[i]->program, vm->program, PROG_CAP);
+            }
+
+            int signal = feedback_thruster_signal(vms, cur_seq, 5);
             if (signal > max_signal) {
               max_signal = signal;
             }
@@ -489,6 +604,34 @@ void test_day_7_part_1() {
   TEST_FIN(failed)
 }
 
+void test_feedback_thruster_signal() {
+  bool failed = false;
+  int prog[] = {3,  26, 1001, 26, -4, 26, 3, 27, 1002, 27,
+                2,  27, 1,    27, 26, 27, 4, 27, 1001, 28,
+                -1, 28, 1005, 28, 6,  99, 0, 0,  5};
+  int input[] = {9, 8, 7, 6, 5};
+  struct VirtualMachine *vms[5];
+  for (int i = 0; i < 5; i++) {
+    vms[i] = malloc(sizeof(struct VirtualMachine));
+    init_vm(vms[i]);
+    memcpy(vms[i]->program, prog, sizeof(prog));
+  }
+  assert_eq(find_max_feedback_thruster_signal(vms[0]), 139629729);
+  assert_eq(feedback_thruster_signal(vms, input, LENGTH(input)), 139629729);
+  TEST_FIN(failed)
+}
+
+void test_day_7_part_2() {
+  bool failed = false;
+  struct VirtualMachine *vm = malloc(sizeof(struct VirtualMachine));
+  init_vm(vm);
+  FILE *fp = fopen("data/day_7_amplifier_input.txt", "r");
+  parse_file(fp, vm);
+  fclose(fp);
+  assert_eq(find_max_feedback_thruster_signal(vm), 84088865);
+  TEST_FIN(failed)
+}
+
 int main(int argc, const char *argv[]) {
   TEST_COUNT = 0;
   TEST_FAILURES = 0;
@@ -505,6 +648,8 @@ int main(int argc, const char *argv[]) {
   test_maximize_1();
 
   test_day_7_part_1();
+  test_feedback_thruster_signal();
+  test_day_7_part_2();
 
   printf("\n");
   printf("Ran %d tests", TEST_COUNT);
@@ -513,6 +658,7 @@ int main(int argc, const char *argv[]) {
            "All tests pass!\n");
   } else {
     printf(", got %d failures.\n", TEST_FAILURES);
+    return 1;
   }
   return 0;
 }

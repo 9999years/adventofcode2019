@@ -43,4 +43,5 @@ clean:
 	rm -f day_1_fuel
 	rm -f day_5_intcode_2
 	rm -f day_6_orbits.aux
+	rm -f day_6_orbits.log
 	rm -f day_7_intcode_3
