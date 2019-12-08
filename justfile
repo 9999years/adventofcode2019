@@ -35,7 +35,7 @@ day-7:
 	gcc ./day_7_intcode_3.c \
 		-o day_7_intcode_3 \
 		-std=c99 \
-		-Wall -Werror -Wpedantic
+		-Wall -Wpedantic
 	./day_7_intcode_3
 
 # Remove generated files and binaries
