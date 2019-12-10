@@ -38,6 +38,10 @@ day-7:
 		-Wall -Wpedantic
 	./day_7_intcode_3
 
+day-8:
+	@echo "$(printf "Make sure to get a copy of Python 0.9.1 from \033[4m\033[36mhttps://www.python.org/download/releases/early/\033[0m")"
+	python0.9 day_8_image.py
+
 # Remove generated files and binaries
 clean:
 	rm -f day_1_fuel

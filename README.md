@@ -45,5 +45,6 @@ Languages used so far:
 - Nim
 - LaTeX
 - C
+- [Python 0.9.1](https://www.python.org/download/releases/early/)
 
 [aoc]: https://adventofcode.com/
