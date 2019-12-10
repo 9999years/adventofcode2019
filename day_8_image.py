@@ -1,69 +1,75 @@
 #!/usr/bin/env python0.9
 # Yes, Python 0.9.1, the first 'beta' release of Python, from 1991!
 # Get a copy here:
-# https://www.python.org/download/releases/early/
+#   https://www.python.org/download/releases/early/
+# And be sure to apply the patch in ./day_8_python.patch or integer
+# multiplication won't work on x64.
 
-import string
-import sys
+try:
+    import string
+    import sys
+except NameError, x:
+    # Python 0.9 note: Only single quotes (') can be used to delimit strings;
+    # double quotes are not allowed.
+    print 'Could not import a builtin module; check that DEFPYTHONPATH in the'
+    print 'Makefile includes the "lib" directory under the Python 0.9.1 source tree.'
+    raise x
 
-NO_SHADE = ' '  # 0, 1
-LIGHT_SHADE = '░'  # 2, 3
-MEDIUM_SHADE = '▒'  # 4, 5
-DARK_SHADE = '▓'  # 6, 7
-FULL_SHADE = '█'  # 8, 9
 
-
+# Python 0.9 note: Lists (which it calls "sequences") are the only iterable
+# objects, and we have basically no tools for dealing with them. So, to make
+# our lives a bit easier, we define zip() and enumerate() in the naive ways;
+# unfortunately, these take O(n) memory.
 def zip(as, bs):
     i = 0
     ret = []
     for a in as:
         ret.append((a, bs[i]))
+        # Python 0.9 note: there are no compound assignment operators, so we
+        # have to do this.
         i = i + 1
     return ret
+
 
 def enumerate(itr):
     return zip(range(len(itr)), itr)
 
 
+# Print a single digit as a string. The statement
+#   print pixel
+# adds a newline at the end, so that won't work, and sys.stdout.write only
+# takes strings as arguments.
+#
+# Arguments:
+#   pixel (int): The pixel to print
+DIGITS = '0123456789'
 def raw_print_pixel(pixel):
-    c = '0'
-    if pixel = 1:
-        c = '1'
-    elif pixel = 2:
-        c = '2'
-    elif pixel = 3:
-        c = '3'
-    elif pixel = 4:
-        c = '4'
-    elif pixel = 5:
-        c = '5'
-    elif pixel = 6:
-        c = '6'
-    elif pixel = 7:
-        c = '7'
-    elif pixel = 8:
-        c = '8'
-    elif pixel = 9:
-        c = '9'
-    sys.stdout.write(c)
+    sys.stdout.write(DIGITS[pixel])
 
+
+# Arguments:
+#   pixel (int): The pixel to print
+SHADE = '  ░░▒▒▓▓██'
 def print_pixel(pixel):
-    c = NO_SHADE
-    if pixel >= 8:
-        c = FULL_SHADE
-    elif pixel >= 6:
-        c = DARK_SHADE
-    elif pixel >= 4:
-        c = MEDIUM_SHADE
-    elif pixel >= 2:
-        c = LIGHT_SHADE
-    sys.stdout.write(c)
+    sys.stdout.write(SHADE[pixel])
 
 
+# Gets the number of layers from given image data and dimensions.
+# Arguments:
+#   image (sequence of int): The image data
+#   width (int): The image width
+#   height (int): The image height
+# Returns: int
 def num_layers(image, width, height):
     return len(image) / (width * height)
 
 
+# Splits image data to a series of layers.
+# Arguments:
+#   image (sequence of int): The image data
+#   width (int): The image width
+#   height (int): The image height
+# Returns: sequence of sequence of int
 def split_to_layers(image, width, height):
     pixels_per_layer = width * height
     layers = []
@@ -73,24 +79,50 @@ def split_to_layers(image, width, height):
     return layers
 
 
+# Maps a string of digits to a sequence of ints.
+# Arguments:
+#   image: a string of digits
+# Returns: sequence of int
 def map_to_digits(image):
     ret = []
     for char in image:
+        # Python 0.9 note: int() only converts floats to ints by truncation, to
+        # convert a string to an int we need string.atoi (!!!)
         ret.append(string.atoi(char))
     return ret
 
 
-def count_element(lst, d):
+# Counts occurances of an element `el` in a sequence.
+# Arguments:
+#   seq (seq of T): The sequence to analyse
+#   el (T): The element to count
+# Returns: int
+def count_element(seq, el):
     ctr = 0
-    for n in lst:
-        if n = d:
+    for n in seq:
+        # Python 0.9 note: in conditionals, a single '=' is used for equality
+        # checks.
+        if n = el:
             ctr = ctr + 1
     return ctr
 
 
-
-class Image():
+# A space-image-format image.
+#
+# Python 0.9 note: Unfortunately, suites (blocks of statements) in cannot
+# contain blank lines, which makes this look... kinda cramped, and it mean that I
+# can't run this file through black.
+class Image():  # The parens are mandatory.
+    # Python 0.9 note: There's no __init__ function, so you need to make a
+    # 'new' method.
     def new(self):
+        # Python 0.9 note: When you call Image().new(image, (width, height)) it
+        # all gets bundled into a tuple, because arguments *are* tuples more
+        # directly than they are in later Pythons. Therefore, we need to unpack
+        # our arguments into local variables. Fortunately, tuple-unpacking
+        # assingment is implemented, even nestedly! Unfortunately, this means
+        # that if you pass the wrong arguments you get a *very* confusing error
+        # at runtime.
         self, (image, (width, height)) = self
         self.width = width
         self.height = height
@@ -117,6 +149,8 @@ class Image():
             print 'Layer', i
             self._print_layer(layer)
     def layer_with_fewest_zeroes(self):
+        # Python 0.9 note: the int max size is platform dependent, and this
+        # magical value is "good enough, probably".
         least_zeroes = 0xffffffff
         best_layer = None
         best_idx = -1
@@ -128,13 +162,27 @@ class Image():
                 best_layer_idx = i
         return best_layer_idx, best_layer
     def _paint_top(self):
-        new_last = paint_layers(self.image[len(self.image) - 2], self.image[len(self.image) - 1])
+        # Python 0.9 note: negative indices (like self.image[-2]) are *only*
+        # allowed in slice notation, e.g. self.image[-2:-1], but that turns
+        # into more trouble than it's worth, so we just use len(...) - n here.
+        #
+        # Python 0.9 note: Linebreaks are not ignored inside parentheses, so we
+        # need to use a backslash.
+        new_last = paint_layers( \
+            self.image[len(self.image) - 2], \
+            self.image[len(self.image) - 1])
         del self.image[-2:]
         self.image.append(new_last)
     def paint(self):
         while len(self.image) > 1:
             self._paint_top()
 
+
+# Returns the result of overlaying the pixel 'atop' above the pixel 'below'.
+# Arguments:
+#   atop (int): The top layer's pixel
+#   below (int): The bottom layer's pixel
+# Returns: int
 PIXEL_BLACK = 0
 PIXEL_WHITE = 1
 PIXEL_TRANSPARENT = 2
@@ -144,12 +192,21 @@ def paint_pixel(atop, below):
     else:
         return atop
 
+
+# Returns the result of overlaying the layer 'atop' above the layer 'below'.
+# Does not mutate its arguments.
+# Arguments:
+#   atop (seq of int): The top layer
+#   below (seq of int): The bottom layer
+# Returns: seq of int
 def paint_layers(atop, below):
     ret = []
     for a, b in zip(atop, below):
         ret.append(paint_pixel(a, b))
     return ret
 
+
+# Various unit tests.
 def test_1():
     img = Image().new('123456789012', (3, 2))
     layer = img.layer_with_fewest_zeroes()
@@ -206,16 +263,21 @@ def day_8_part_2():
     assert_eq(Image().new(data, (25, 6)).image[0], img.image[0])
 
 
-# There's no built-in way to access the list type-symbol, as far as I can tell.
-list = type([])
-# In Python 0.9.1, exceptions are strings!
+# Python 0.9 note: Exceptions are strings!
 AssertionError = 'Assertion failed'
 def assert_eq(a, b):
+    # Python 0.9 note: There's no 'not equals' operator, so we have to do 'not
+    # a = b'.
     if not a = b:
         print a, '≠', b
         raise AssertionError
 
 
+# A simple test-runner that counts how many tests fail. Doesn't catch other
+# exceptions, because:
+# Python 0.9 note: There's no way (that I could figure out) to catch all
+# exceptions (e.g. a bare 'except:') while capturing the exception into a
+# variable. Exception guards, of course, are implemented as string comparisons.
 class TestRunner():
     def new(self):
         self.tests = 0
@@ -245,4 +307,6 @@ def main():
     tester.test(day_8_part_2)
     tester.print_report()
 
+
+# Python 0.9 note: No __name__ or anything like that.
 main()
