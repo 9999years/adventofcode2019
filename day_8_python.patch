@@ -1,0 +1,24 @@
+diff --git a/Makefile b/Makefile
+index 67e5b3e..ff839b7 100644
+--- a/Makefile
++++ b/Makefile
+@@ -383,2 +383,2 @@ python:                libpython.a $(OBJECTS) $(LIBDEPS) Makefile
+-       $(CC) $(CFLAGS) $(OBJECTS) $(LIBS) -o @python
+-       mv @python python
++       $(CC) $(CFLAGS) $(OBJECTS) $(LIBS) -o __python
++       mv __python python
++       cp python python0.9
+diff --git a/intobject.c b/intobject.c
+index 3da91f8..1c11f01 100644
+--- a/intobject.c
++++ b/intobject.c
+@@ -23,0 +24 @@ OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
++#include <limits.h>
+@@ -192 +192,0 @@ int_mul(v, w)
+-       double x;
+@@ -199,2 +199 @@ int_mul(v, w)
+-       x = (double)a * (double)b;
+-       if (x > 0x7fffffff || x < (double) (long) 0x80000000)
++       if (a != 0 && LONG_MAX / a <= b) {
+@@ -201,0 +201 @@ int_mul(v, w)
++       }

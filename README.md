@@ -6,13 +6,13 @@ Each day in a different language!
 
 The bucket of languages includes:
 
-- Ruby
-- Perl
 - Java
 - Python
 - C++
 - TypeScript
 - PowerShell
+- Ruby
+- Perl
 - PHP
 - Bash
 - Mathematica
@@ -35,6 +35,7 @@ The bucket of languages includes:
 - Zig
 - Pony
 - Dart
+- Swift
 
 Languages used so far:
 
