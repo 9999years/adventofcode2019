@@ -13,6 +13,18 @@ DARK_SHADE = '▓'  # 6, 7
 FULL_SHADE = '█'  # 8, 9
 
 
+def zip(as, bs):
+    i = 0
+    ret = []
+    for a in as:
+        ret.append((a, bs[i]))
+        i = i + 1
+    return ret
+
+def enumerate(itr):
+    return zip(range(len(itr)), itr)
+
+
 def raw_print_pixel(pixel):
     c = '0'
     if pixel = 1:
@@ -87,43 +99,56 @@ class Image():
     def layer(self, n):
         return self.image[n]
     def _print_layer(self, layer):
-        column = 0
-        for p in layer:
-            column = column + 1
+        for column, p in enumerate(layer):
+            if column > 0 and column % self.width = 0:
+                print
             print_pixel(p)
-            if column = self.width:
-                print
-                column = 0
+        print
     def print_layer_raw(self, layer):
-        column = 0
-        for p in layer:
-            column = column + 1
-            raw_print_pixel(p)
-            if column = self.width:
+        for column, p in enumerate(layer):
+            if column > 0 and column % self.width = 0:
                 print
-                column = 0
+            raw_print_pixel(p)
+        print
     def print_layer(self, n):
         self._print_layer(self.image[n])
     def print_image(self):
-        i = 0
-        for layer in self.image:
+        for i, layer in enumerate(self.image):
             print 'Layer', i
             self._print_layer(layer)
-            i = i + 1
     def layer_with_fewest_zeroes(self):
         least_zeroes = 0xffffffff
         best_layer = None
         best_idx = -1
-        i = 0
-        for layer in self.image:
+        for i, layer in enumerate(self.image):
             zeroes = count_element(layer, 0)
             if zeroes <= least_zeroes:
                 best_layer = layer
                 least_zeroes = zeroes
                 best_layer_idx = i
-            i = i + 1
         return best_layer_idx, best_layer
+    def _paint_top(self):
+        new_last = paint_layers(self.image[len(self.image) - 2], self.image[len(self.image) - 1])
+        del self.image[-2:]
+        self.image.append(new_last)
+    def paint(self):
+        while len(self.image) > 1:
+            self._paint_top()
 
+PIXEL_BLACK = 0
+PIXEL_WHITE = 1
+PIXEL_TRANSPARENT = 2
+def paint_pixel(atop, below):
+    if atop = PIXEL_TRANSPARENT:
+        return below
+    else:
+        return atop
+
+def paint_layers(atop, below):
+    ret = []
+    for a, b in zip(atop, below):
+        ret.append(paint_pixel(a, b))
+    return ret
 
 def test_1():
     img = Image().new('123456789012', (3, 2))
@@ -142,7 +167,7 @@ def test_count():
 
 def image_data():
     fh = open('data/day_8_input.txt', 'r')
-    contents = string.strip(fh.readline())
+    contents = string.strip(fh.readline(16000))
     fh.close()
     return contents
 
@@ -160,6 +185,25 @@ def day_8_part_1():
     num_1s = count_element(layer, 1)
     num_2s = count_element(layer, 2)
     assert_eq(num_1s * num_2s, 2318)
+
+
+def test_paint():
+    img = Image().new('0222112222120000', (2, 2))
+    img.paint()
+    assert_eq(img.image[0], [0, 1, 1, 0])
+
+
+def day_8_part_2():
+    img = input_image()
+    img.paint()
+    data = ( \
+          '0110010010111100110011100' \
+        + '1001010010100001001010010' \
+        + '1001011110111001000011100' \
+        + '1111010010100001000010010' \
+        + '1001010010100001001010010' \
+        + '1001010010100000110011100' )
+    assert_eq(Image().new(data, (25, 6)).image[0], img.image[0])
 
 
 # There's no built-in way to access the list type-symbol, as far as I can tell.
@@ -197,6 +241,8 @@ def main():
     tester.test(test_1)
     tester.test(test_count)
     tester.test(day_8_part_1)
+    tester.test(test_paint)
+    tester.test(day_8_part_2)
     tester.print_report()
 
 main()
