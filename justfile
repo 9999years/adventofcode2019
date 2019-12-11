@@ -45,7 +45,13 @@ day-8:
 	python0.9 day_8_image.py
 
 day-9:
-	cd etc && cmake . && make && ./day_9_intcode_4
+	mkdir -p etc/day_9_build
+	cp etc/CMakeLists.txt etc/CMakeLists.txt.in etc/day_9_build/
+	cd etc/day_9_build \
+		&& test -f Makefile \
+		|| cmake -DCMAKE_EXPORT_COMPILE_COMMANDS=1 . \
+		&& cp ./compile_commands.json ../../ \
+		&& make && ./day_9_intcode_4
 
 # Remove generated files and binaries
 clean:
