@@ -44,6 +44,9 @@ day-8:
 	@echo "You'll also likely want to apply the patch in ./day_8_python.patch to avoid spurious integer overflow detection errors."
 	python0.9 day_8_image.py
 
+day-9:
+	cd etc && cmake . && make && ./day_9_intcode_4
+
 # Remove generated files and binaries
 clean:
 	rm -f day_1_fuel
