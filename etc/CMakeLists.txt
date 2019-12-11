@@ -31,5 +31,5 @@ add_subdirectory(${CMAKE_CURRENT_BINARY_DIR}/abseil-src
 add_executable(day_9_intcode_4 ${CMAKE_CURRENT_BINARY_DIR}/../../day_9_intcode_4.cpp)
 target_compile_options(day_9_intcode_4
     PRIVATE -Werror -Wall -Wextra)
-target_link_libraries(day_9_intcode_4 PUBLIC gtest_main absl::strings ${Boost_LIBRARIES})
+target_link_libraries(day_9_intcode_4 PUBLIC gmock_main gtest_main absl::strings ${Boost_LIBRARIES})
 add_test(NAME day_9_intcode_4_test COMMAND day_9_intcode_4)

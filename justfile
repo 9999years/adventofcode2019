@@ -59,4 +59,6 @@ clean:
 	rm -f day_5_intcode_2
 	rm -f day_6_orbits.aux
 	rm -f day_6_orbits.log
+	rm -f regression-test.log
 	rm -f day_7_intcode_3
+	rm -f etc/day_9_build

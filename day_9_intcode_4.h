@@ -2,6 +2,7 @@
 #define DAY_9_INTCODE_4_H
 
 #include <deque>
+#include <initializer_list>
 #include <type_traits>
 #include <vector>
 
@@ -21,6 +22,7 @@ enum class Op {
   JZ = 6,
   LessThan = 7,
   Equals = 8,
+  AddRelBase = 9,
   Halt = 99,
 };
 
@@ -46,36 +48,14 @@ public:
   }
   std::size_t size() const { return args.size(); }
 
-  enum class Add {
-    LHS = 0,
-    RHS,
-    RetAddr,
-  };
-
-  enum class Mul {
-    LHS = 0,
-    RHS,
-    RetAddr,
-  };
-
+  enum class Add { LHS = 0, RHS, RetAddr };
+  enum class Mul { LHS = 0, RHS, RetAddr };
   enum class Input { RetAddr = 0 };
-
   enum class Output { Val = 0 };
-
-  enum class JNZ {
-    Cmp = 0,
-    RetAddr,
-  };
-
-  enum class JZ {
-    Cmp = 0,
-    RetAddr,
-  };
-
+  enum class Jmp { Cmp = 0, RetAddr };
   enum class LessThan { LHS = 0, RHS, RetAddr };
-
   enum class Equals { LHS = 0, RHS, RetAddr };
-
+  enum class AddRelBase { Val = 0 };
   friend class Instruction;
 };
 
@@ -89,16 +69,14 @@ public:
   std::deque<int> output;
 
   VirtualMachine();
+  VirtualMachine(std::initializer_list<int> init);
 
   void reset();
   void eval();
 
 protected:
-  template <typename E> const int &operator[](E e) const {
-    return program[static_cast<std::size_t>(e)];
-  }
-  template <typename E> int &operator[](E e) {
-    return program[static_cast<std::size_t>(e)];
+  const int &operator[](std::size_t idx) const {
+    return program[static_cast<std::size_t>(idx)];
   }
   const Instruction *ins();
   int arg(Mode mode, std::size_t idx) const;
