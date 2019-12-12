@@ -47,11 +47,12 @@ day-8:
 day-9:
 	mkdir -p etc/day_9_build
 	cp etc/CMakeLists.txt etc/CMakeLists.txt.in etc/day_9_build/
+	cd etc/day_9_build && [ -e ./Makefile ] \
+		|| cmake -DCMAKE_EXPORT_COMPILE_COMMANDS=1 .
 	cd etc/day_9_build \
-		&& test -f Makefile \
-		|| cmake -DCMAKE_EXPORT_COMPILE_COMMANDS=1 . \
 		&& cp ./compile_commands.json ../../ \
-		&& make && ./day_9_intcode_4
+		&& make
+	./etc/day_9_build/day_9_intcode_4
 
 # Remove generated files and binaries
 clean:
@@ -61,4 +62,4 @@ clean:
 	rm -f day_6_orbits.log
 	rm -f regression-test.log
 	rm -f day_7_intcode_3
-	rm -f etc/day_9_build
+	rm -rf etc/day_9_build

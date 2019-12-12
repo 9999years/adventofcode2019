@@ -3,7 +3,8 @@
 
 #include <deque>
 #include <initializer_list>
-#include <type_traits>
+#include <iterator>
+#include <string>
 #include <vector>
 
 template <typename E> constexpr auto to_underlying(E e) noexcept {
@@ -26,27 +27,32 @@ enum class Op {
   Halt = 99,
 };
 
+Op from_raw_instruction(long raw_ins);
+
 enum class Mode {
   Position = 0,
   Immediate = 1,
   Relative = 2,
+  ImmediateRelative,
 };
 
 class Args {
   std::vector<Mode> modes;
 
 public:
-  const static int OPCODE_SIZE = 100;
+  const static long OPCODE_SIZE = 100;
   const static int MAX_ARGS_LEN = 3;
 
-  std::vector<int> args;
+  std::vector<long> args;
 
-  Args(int);
+  explicit Args(long);
 
-  template <typename E> int operator[](E e) const {
+  template <typename E> long operator[](E e) const {
     return args[static_cast<std::size_t>(e)];
   }
   std::size_t size() const { return args.size(); }
+
+  std::size_t arg_count(Op op) const;
 
   enum class Add { LHS = 0, RHS, RetAddr };
   enum class Mul { LHS = 0, RHS, RetAddr };
@@ -61,25 +67,30 @@ public:
 
 class VirtualMachine {
   std::size_t relative_base;
+  std::size_t program_size;
+
+  void ensure(std::size_t size);
 
 public:
-  std::vector<int> program;
+  std::vector<long> program;
   std::size_t ip;
-  std::deque<int> input;
-  std::deque<int> output;
+  std::deque<long> input;
+  std::deque<long> output;
 
   VirtualMachine();
-  VirtualMachine(std::initializer_list<int> init);
+  VirtualMachine(std::initializer_list<long> init);
+  template <class InputIt> VirtualMachine(InputIt first, InputIt last);
 
   void reset();
   void eval();
+  void trim_to_program();
 
 protected:
-  const int &operator[](std::size_t idx) const {
+  const long &operator[](std::size_t idx) const {
     return program[static_cast<std::size_t>(idx)];
   }
   const Instruction *ins();
-  int arg(Mode mode, std::size_t idx) const;
+  long arg(Mode mode, std::size_t idx);
   Op step();
 
   friend class Instruction;
@@ -90,7 +101,10 @@ public:
   Op op;
   Args args;
 
-  Instruction(int);
+  Instruction(long);
   void get_args(VirtualMachine &);
 };
+
+std::vector<long> read_file(const std::string &filename);
+
 #endif

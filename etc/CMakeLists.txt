@@ -18,18 +18,12 @@ if(result)
 endif()
 set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
 
-find_package( Boost 1.65 COMPONENTS program_options REQUIRED )
-include_directories( ${Boost_INCLUDE_DIR} )
-
 add_subdirectory(${CMAKE_CURRENT_BINARY_DIR}/googletest-src
                  ${CMAKE_CURRENT_BINARY_DIR}/googletest-build
-                 EXCLUDE_FROM_ALL)
-add_subdirectory(${CMAKE_CURRENT_BINARY_DIR}/abseil-src
-                 ${CMAKE_CURRENT_BINARY_DIR}/abseil-build
                  EXCLUDE_FROM_ALL)
 
 add_executable(day_9_intcode_4 ${CMAKE_CURRENT_BINARY_DIR}/../../day_9_intcode_4.cpp)
 target_compile_options(day_9_intcode_4
     PRIVATE -Werror -Wall -Wextra)
-target_link_libraries(day_9_intcode_4 PUBLIC gmock_main gtest_main absl::strings ${Boost_LIBRARIES})
+target_link_libraries(day_9_intcode_4 PUBLIC gmock_main gtest_main)
 add_test(NAME day_9_intcode_4_test COMMAND day_9_intcode_4)
