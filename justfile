@@ -44,6 +44,7 @@ day-8:
 	@echo "You'll also likely want to apply the patch in ./day_8_python.patch to avoid spurious integer overflow detection errors."
 	python0.9 day_8_image.py
 
+# Sensor Boost (C++17)
 day-9:
 	mkdir -p etc/day_9_build
 	cp etc/CMakeLists.txt etc/CMakeLists.txt.in etc/day_9_build/
@@ -53,6 +54,16 @@ day-9:
 		&& cp ./compile_commands.json ../../ \
 		&& make
 	./etc/day_9_build/day_9_intcode_4
+
+# Monitoring Station (Node.js)
+day-10:
+	mkdir -p ./etc/day_10_build
+	cp ./day_10_asteroids.js ./etc/package.json ./etc/day_10_build/
+	mkdir -p ./etc/day_10_build/data \
+		&& cp data/day_10_asteroid_map.txt etc/day_10_build/
+	cd ./etc/day_10_build/ && [ -d ./node_modules ] \
+		|| npm install
+	cd ./etc/day_10_build && npm test
 
 # Remove generated files and binaries
 clean:

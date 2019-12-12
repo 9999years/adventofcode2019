@@ -1,0 +1,15 @@
+{
+    "name": "advent-of-code-2019-day-10",
+    "version": "1.0.0",
+    "description": "Advent of Code 2019, Day 10",
+    "scripts": {
+        "test": "mocha day_10_asteroids.js"
+    },
+    "dependencies": {
+        "mathjs": "^6.2.5"
+    },
+    "devDependencies": {
+        "chai": "^4.2.0",
+        "mocha": "^6.2.0"
+    }
+}
