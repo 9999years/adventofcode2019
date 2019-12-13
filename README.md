@@ -8,7 +8,6 @@ The bucket of languages includes:
 
 - Java
 - Python
-- C++
 - TypeScript
 - PowerShell
 - Ruby
@@ -47,5 +46,7 @@ Languages used so far:
 - LaTeX
 - C
 - [Python 0.9.1](https://www.python.org/download/releases/early/)
+- Node.JS / JavaScript
+- C++
 
 [aoc]: https://adventofcode.com/
