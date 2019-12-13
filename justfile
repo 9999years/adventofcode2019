@@ -60,7 +60,7 @@ day-10:
 	mkdir -p ./etc/day_10_build
 	cp ./day_10_asteroids.js ./etc/package.json ./etc/day_10_build/
 	mkdir -p ./etc/day_10_build/data \
-		&& cp data/day_10_asteroid_map.txt etc/day_10_build/
+		&& cp data/day_10_asteroid_map.txt etc/day_10_build/data
 	cd ./etc/day_10_build/ && [ -d ./node_modules ] \
 		|| npm install
 	cd ./etc/day_10_build && npm test
