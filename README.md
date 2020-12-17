@@ -1,5 +1,7 @@
 # Advent of Code 2019
 
+Next: [Advent of Code 2020](https://github.com/9999years/adventofcode2020).
+
 Code for [Advent of Code][aoc] 2019.
 
 Each day in a different language!
